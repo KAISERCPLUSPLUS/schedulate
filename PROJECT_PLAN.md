@@ -637,3 +637,60 @@ export const theme = {
 - Don't create custom components when Paper provides them
 - Don't sacrifice usability for aesthetics
 - Don't over-design V1 — function first, polish later
+
+---
+
+## Future Considerations
+
+Things intentionally deferred to keep V1 simple, but designed to be easy to add later.
+
+### Type Safety Improvements
+
+- **Branded types for dates** — Currently using `string` for ISO date fields. Could add:
+  ```typescript
+  type ISODateString = string & { readonly __brand: "ISODateString" };
+  ```
+  Zero runtime cost, prevents accidental string assignment.
+
+- **Runtime validation** — Libraries like `zod` for validating data shape at boundaries (API responses, storage reads).
+
+### Internationalization (i18n)
+
+- All user-facing strings are currently hardcoded in English
+- Extract to a translation system when/if needed
+- Tedious but mechanical refactor
+
+### Timezone Handling
+
+- Current approach: store all dates as UTC ISO strings, convert to local for display
+- JavaScript `Date` handles timezone conversion automatically
+- Multi-user timezone sync is a V4 concern (partner mode)
+
+### Accessibility
+
+- React Native Paper provides baseline accessibility
+- Future: audit with screen reader, add ARIA labels where needed
+
+### Testing
+
+- No tests in V1 — focus on getting the app working
+- Future: Jest + React Native Testing Library for unit/component tests
+- E2E: Detox or Maestro
+
+### CI Pipeline
+
+- No CI in V1 — manual linting and type checking
+- Future: GitHub Actions workflow for:
+  - `npm run lint` on PR
+  - `npm run typecheck` on PR
+  - EAS Build for preview builds on merge to main
+  - Automated App Store deployment on release tags
+
+### Backend
+
+- V1 is entirely on-device (AsyncStorage + Zustand)
+- Future (V2+): Supabase for:
+  - User authentication
+  - Cross-device sync
+  - Partner/household sharing
+- Alternative: Firebase if deeper Google Calendar integration needed
