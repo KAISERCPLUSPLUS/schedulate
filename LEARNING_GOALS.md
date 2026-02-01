@@ -7,19 +7,22 @@ Build a complete mobile application from scratch to learn **transferable softwar
 ## What I Want to Learn
 
 ### Architecture & Design
+
 - Making informed architectural decisions and understanding trade-offs
 - Structuring a codebase that scales without over-engineering
 - Separating concerns (UI, state, business logic, external services)
 
 ### Full Stack Understanding
+
 - How mobile apps work end-to-end
 - Client-server communication patterns
 - Authentication flows (OAuth)
 - Local storage and state management
 
 ### Decision-Making
+
 - Evaluating options without researching everything myself (time-prohibitive)
-- Understanding *why* certain patterns exist, not just *how* to use them
+- Understanding _why_ certain patterns exist, not just _how_ to use them
 - Recognizing when "simple" beats "clever"
 
 ## What I Don't Care About

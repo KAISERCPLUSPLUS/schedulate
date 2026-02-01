@@ -11,6 +11,7 @@ Regular recurring tasks are easy—weekly meetings go in the calendar. But **irr
 - Replace water filter (every 4 months)
 
 These tasks share common problems:
+
 1. **Unpredictable intervals** — Not weekly/monthly, so calendar repeat doesn't fit
 2. **Flexible timing** — "Sometime this week" rather than "Tuesday at 3pm"
 3. **Easy to forget** — No natural reminder until it's overdue
@@ -19,6 +20,7 @@ These tasks share common problems:
 ## The Solution
 
 An app that:
+
 1. **Tracks irregular recurring tasks** with custom intervals
 2. **Spreads out conflicting tasks** when multiple are due around the same time
 3. **Sends smart notifications** when it's time to schedule (not do) the task
@@ -28,6 +30,7 @@ An app that:
 ### Why Google Calendar Integration?
 
 Instead of building yet another calendar app:
+
 - Leverage Google Calendar's excellent drag-and-drop UI
 - No need to reinvent scheduling visualization
 - Integrates with existing workflow
@@ -44,6 +47,7 @@ Instead of building yet another calendar app:
 Both platforms support opening Google Calendar with pre-filled event details:
 
 **Android:**
+
 ```
 Intent with action: Intent.ACTION_INSERT
 Data: content://com.android.calendar/events
@@ -51,12 +55,14 @@ Extras: title, beginTime, endTime, description
 ```
 
 **iOS:**
+
 ```
 URL: googlecalendar://?action=create&title=...&dates=...
 Or: https://calendar.google.com/calendar/render?action=TEMPLATE&...
 ```
 
 **Web fallback (universal):**
+
 ```
 https://calendar.google.com/calendar/render?action=TEMPLATE
   &text=Clean+Bathroom
@@ -64,13 +70,14 @@ https://calendar.google.com/calendar/render?action=TEMPLATE
   &details=Scheduled+via+TaskFlow
 ```
 
-**Important nuance:** You cannot create a "floating draft" that hovers until placed. Instead, you create an event at a *suggested* time (e.g., Saturday 10am), and the user moves it. Functionally identical to the vision.
+**Important nuance:** You cannot create a "floating draft" that hovers until placed. Instead, you create an event at a _suggested_ time (e.g., Saturday 10am), and the user moves it. Functionally identical to the vision.
 
 ### Hinder 2: Detecting if User Actually Scheduled
 
 **Status: ✅ Possible with Google Calendar API**
 
 Flow:
+
 1. App requests OAuth permission to read user's calendar
 2. User clicks notification → deep-link opens Google Calendar
 3. On app resume (or after delay), query Calendar API for matching event
@@ -86,16 +93,16 @@ Flow:
 
 **Status: 🟡 Partial Overlap, No Exact Match**
 
-| App | What It Does | Missing |
-|-----|--------------|---------|
-| **Tody** | Cleaning schedules with "freshness" decay visualization | No external calendar integration |
-| **Sweepy** | Household chores with custom intervals | No deep-link to Google Calendar |
-| **Due** | Persistent nagging reminders | No scheduling logic, no calendar |
-| **Recurrence** | Custom recurring reminders | No conflict spreading, no calendar integration |
-| **Todoist** | Tasks with custom recurrence | No "schedule into calendar" flow, no conflict resolution |
-| **Structured** | Time-blocking calendar app | Is its own calendar, doesn't integrate |
+| App            | What It Does                                            | Missing                                                  |
+| -------------- | ------------------------------------------------------- | -------------------------------------------------------- |
+| **Tody**       | Cleaning schedules with "freshness" decay visualization | No external calendar integration                         |
+| **Sweepy**     | Household chores with custom intervals                  | No deep-link to Google Calendar                          |
+| **Due**        | Persistent nagging reminders                            | No scheduling logic, no calendar                         |
+| **Recurrence** | Custom recurring reminders                              | No conflict spreading, no calendar integration           |
+| **Todoist**    | Tasks with custom recurrence                            | No "schedule into calendar" flow, no conflict resolution |
+| **Structured** | Time-blocking calendar app                              | Is its own calendar, doesn't integrate                   |
 
-**Your differentiator:** "Smart scheduling assistant that feeds into Google Calendar" — helps you *decide when* to do things, not manage yet another calendar.
+**Your differentiator:** "Smart scheduling assistant that feeds into Google Calendar" — helps you _decide when_ to do things, not manage yet another calendar.
 
 ---
 
@@ -128,34 +135,34 @@ Flow:
 
 ```typescript
 interface Task {
-  id: string;
-  name: string;
-  description?: string;
+    id: string;
+    name: string;
+    description?: string;
 
-  // Scheduling
-  intervalDays: number;           // e.g., 35 for "every 5 weeks"
-  flexibilityDays: number;        // e.g., 7 means "within a week is fine"
-  preferredDayOfWeek?: number;    // 0-6, optional preference
-  durationMinutes: number;        // How long the task takes
+    // Scheduling
+    intervalDays: number; // e.g., 35 for "every 5 weeks"
+    flexibilityDays: number; // e.g., 7 means "within a week is fine"
+    preferredDayOfWeek?: number; // 0-6, optional preference
+    durationMinutes: number; // How long the task takes
 
-  // State
-  lastCompletedDate?: string;     // ISO date
-  nextDueDate: string;            // ISO date (calculated)
-  status: 'pending' | 'notified' | 'scheduled' | 'overdue';
+    // State
+    lastCompletedDate?: string; // ISO date
+    nextDueDate: string; // ISO date (calculated)
+    status: "pending" | "notified" | "scheduled" | "overdue";
 
-  // Tracking
-  scheduledEventId?: string;      // Google Calendar event ID if scheduled
-  snoozeCount: number;            // How many times snoozed
+    // Tracking
+    scheduledEventId?: string; // Google Calendar event ID if scheduled
+    snoozeCount: number; // How many times snoozed
 
-  createdAt: string;
-  updatedAt: string;
+    createdAt: string;
+    updatedAt: string;
 }
 
 interface AppSettings {
-  notificationTime: string;       // e.g., "09:00" - when to send daily digest
-  advanceNoticeDays: number;      // How many days before due to start notifying
-  googleCalendarLinked: boolean;
-  selectedCalendarId?: string;
+    notificationTime: string; // e.g., "09:00" - when to send daily digest
+    advanceNoticeDays: number; // How many days before due to start notifying
+    googleCalendarLinked: boolean;
+    selectedCalendarId?: string;
 }
 ```
 
@@ -165,13 +172,13 @@ When multiple tasks are due in the same period:
 
 ```typescript
 function spreadTasks(tasks: Task[], windowDays: number): ScheduleSuggestion[] {
-  // 1. Sort by flexibility (least flexible first)
-  // 2. Sort by overdue status (most overdue first)
-  // 3. Assign to available slots, respecting:
-  //    - preferredDayOfWeek if set
-  //    - Maximum tasks per day (configurable, default 1)
-  //    - Flexibility window
-  // 4. Return suggested dates for each task
+    // 1. Sort by flexibility (least flexible first)
+    // 2. Sort by overdue status (most overdue first)
+    // 3. Assign to available slots, respecting:
+    //    - preferredDayOfWeek if set
+    //    - Maximum tasks per day (configurable, default 1)
+    //    - Flexibility window
+    // 4. Return suggested dates for each task
 }
 ```
 
@@ -181,24 +188,26 @@ function spreadTasks(tasks: Task[], windowDays: number): ScheduleSuggestion[] {
 
 ### Why These Choices
 
-| Technology | Why | Alternatives Considered |
-|------------|-----|------------------------|
-| **React Native** | Leverages existing React knowledge, mature ecosystem | Flutter (new language), native (2x work) |
-| **Expo** | Professional toolchain, handles hard parts (notifications, builds), not a toy | Bare React Native (more setup pain) |
-| **TypeScript** | Static typing, better refactoring, catches bugs early | Plain JS (no thanks) |
-| **Zustand** | Simple state management, TypeScript-first, minimal boilerplate | Redux (overkill), Context (scales poorly) |
-| **AsyncStorage** | Simple key-value storage, works offline | SQLite (overkill for this), Realm (complex) |
-| **expo-notifications** | Cross-platform notifications with Expo integration | Native modules (more setup) |
-| **expo-auth-session** | OAuth flows made manageable | Building OAuth from scratch (painful) |
+| Technology             | Why                                                                           | Alternatives Considered                                        |
+| ---------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| **React Native**       | Leverages existing React knowledge, mature ecosystem                          | Flutter (new language), native (2x work)                       |
+| **Expo**               | Professional toolchain, handles hard parts (notifications, builds), not a toy | Bare React Native (more setup pain)                            |
+| **TypeScript**         | Static typing, better refactoring, catches bugs early                         | Plain JS (no thanks)                                           |
+| **Zustand**            | Simple state management, TypeScript-first, minimal boilerplate                | Redux (considered, too much ceremony), Context (scales poorly) |
+| **AsyncStorage**       | Simple key-value storage, works offline                                       | SQLite (overkill for this), Realm (complex)                    |
+| **expo-notifications** | Cross-platform notifications with Expo integration                            | Native modules (more setup)                                    |
+| **expo-auth-session**  | OAuth flows made manageable                                                   | Building OAuth from scratch (painful)                          |
 
 ### Backend (V1: None Required)
 
 For V1, everything lives on-device:
+
 - Tasks stored in AsyncStorage
 - Google Calendar API called directly from app
 - No user accounts, no sync
 
 **Future (V2+):** Add Supabase for:
+
 - User accounts
 - Cross-device sync
 - Partner sharing
@@ -243,7 +252,7 @@ For V1, everything lives on-device:
 
 ### Prerequisites
 
-1. **Node.js 18+** — Install via [nvm](https://github.com/nvm-sh/nvm) or [nodejs.org](https://nodejs.org)
+1. **Node.js 24.11.1** — Install via [nvm](https://github.com/nvm-sh/nvm), project has `.nvmrc`
 2. **Expo CLI** — Installed as project dependency (no global install needed)
 3. **iOS Simulator** (Mac) or **Android Emulator** — Or physical device with Expo Go app
 4. **VS Code** — Recommended, with ESLint and Prettier extensions
@@ -251,30 +260,29 @@ For V1, everything lives on-device:
 
 ### Step 1: Initialize the Project
 
+**Already done.** Project initialized with:
+
+- Expo + TypeScript
+- React Native Paper (UI components)
+- Zustand (state management)
+- ESLint with strict TypeScript rules + Prettier
+- 4-space indentation (`.editorconfig`, `.prettierrc.js`)
+- React Navigation (chosen over Expo Router for transferable knowledge)
+
+To set up:
+
 ```bash
-# Create new Expo project with TypeScript template
-npx create-expo-app@latest scheduling-app --template expo-template-blank-typescript
-
-cd scheduling-app
-
-# Install core dependencies
-npx expo install expo-notifications expo-device expo-linking
-npm install zustand @react-native-async-storage/async-storage
-npm install date-fns uuid
-npm install -D @types/uuid
-
-# Install navigation
-npx expo install @react-navigation/native @react-navigation/native-stack
-npx expo install react-native-screens react-native-safe-area-context
+nvm use              # Uses .nvmrc (Node 24.11.1)
+npm install          # Install dependencies
+npx expo start       # Start dev server
 ```
 
 ### Step 2: Project Structure
 
-Create this folder structure:
+Folder structure (already created):
 
 ```
-scheduling-app/
-├── app/                    # If using Expo Router, otherwise src/
+app/
 ├── src/
 │   ├── components/         # Reusable UI components
 │   │   ├── TaskCard.tsx
@@ -296,8 +304,12 @@ scheduling-app/
 │   │   └── dateHelpers.ts
 │   ├── types/              # TypeScript types
 │   │   └── index.ts
-│   └── constants/
+│   └── theme/              # Theming (light/dark)
 │       └── index.ts
+├── .editorconfig           # Editor formatting rules
+├── .nvmrc                  # Node version lock
+├── .prettierrc.js          # Prettier config
+├── eslint.config.mjs       # ESLint flat config
 ├── app.json
 ├── tsconfig.json
 └── package.json
@@ -309,30 +321,30 @@ Before building the full app, validate the core assumption works:
 
 ```typescript
 // src/services/calendar.ts
-import * as Linking from 'expo-linking';
-import { format, addHours } from 'date-fns';
+import * as Linking from "expo-linking";
+import { format, addHours } from "date-fns";
 
 export function openGoogleCalendarWithEvent(
-  title: string,
-  startTime: Date,
-  durationMinutes: number,
-  description?: string
+    title: string,
+    startTime: Date,
+    durationMinutes: number,
+    description?: string,
 ): Promise<void> {
-  const endTime = addHours(startTime, durationMinutes / 60);
+    const endTime = addHours(startTime, durationMinutes / 60);
 
-  // Format: YYYYMMDDTHHmmss (no dashes, no colons)
-  const formatForGoogle = (date: Date) => format(date, "yyyyMMdd'T'HHmmss");
+    // Format: YYYYMMDDTHHmmss (no dashes, no colons)
+    const formatForGoogle = (date: Date) => format(date, "yyyyMMdd'T'HHmmss");
 
-  const params = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: title,
-    dates: `${formatForGoogle(startTime)}/${formatForGoogle(endTime)}`,
-    details: description || 'Scheduled via Irregular Task Scheduler',
-  });
+    const params = new URLSearchParams({
+        action: "TEMPLATE",
+        text: title,
+        dates: `${formatForGoogle(startTime)}/${formatForGoogle(endTime)}`,
+        details: description || "Scheduled via Irregular Task Scheduler",
+    });
 
-  const url = `https://calendar.google.com/calendar/render?${params.toString()}`;
+    const url = `https://calendar.google.com/calendar/render?${params.toString()}`;
 
-  return Linking.openURL(url);
+    return Linking.openURL(url);
 }
 ```
 
@@ -377,56 +389,52 @@ Run with `npx expo start`, test on your phone. If Google Calendar opens with the
 
 ```typescript
 // src/services/notifications.ts
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import { Platform } from "react-native";
 
 export async function registerForPushNotifications() {
-  if (!Device.isDevice) {
-    console.log('Notifications require physical device');
-    return null;
-  }
+    if (!Device.isDevice) {
+        console.log("Notifications require physical device");
+        return null;
+    }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
+    if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+    }
 
-  if (finalStatus !== 'granted') {
-    console.log('Notification permission denied');
-    return null;
-  }
+    if (finalStatus !== "granted") {
+        console.log("Notification permission denied");
+        return null;
+    }
 
-  // Configure how notifications appear when app is in foreground
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-    }),
-  });
+    // Configure how notifications appear when app is in foreground
+    Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+        }),
+    });
 
-  return true;
+    return true;
 }
 
-export async function scheduleTaskNotification(
-  taskId: string,
-  taskName: string,
-  triggerDate: Date
-) {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Time to schedule a task',
-      body: `"${taskName}" is due soon. Tap to add it to your calendar.`,
-      data: { taskId, action: 'schedule' },
-    },
-    trigger: {
-      date: triggerDate,
-    },
-  });
+export async function scheduleTaskNotification(taskId: string, taskName: string, triggerDate: Date) {
+    await Notifications.scheduleNotificationAsync({
+        content: {
+            title: "Time to schedule a task",
+            body: `"${taskName}" is due soon. Tap to add it to your calendar.`,
+            data: { taskId, action: "schedule" },
+        },
+        trigger: {
+            date: triggerDate,
+        },
+    });
 }
 ```
 
@@ -434,35 +442,28 @@ export async function scheduleTaskNotification(
 
 ```typescript
 // In App.tsx or a dedicated hook
-import { useEffect } from 'react';
-import * as Notifications from 'expo-notifications';
-import { openGoogleCalendarWithEvent } from './src/services/calendar';
-import { useTaskStore } from './src/store/taskStore';
+import { useEffect } from "react";
+import * as Notifications from "expo-notifications";
+import { openGoogleCalendarWithEvent } from "./src/services/calendar";
+import { useTaskStore } from "./src/store/taskStore";
 
 function useNotificationHandler() {
-  const getTask = useTaskStore(state => state.getTask);
+    const getTask = useTaskStore((state) => state.getTask);
 
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      response => {
-        const { taskId } = response.notification.request.content.data;
-        const task = getTask(taskId);
+    useEffect(() => {
+        const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+            const { taskId } = response.notification.request.content.data;
+            const task = getTask(taskId);
 
-        if (task) {
-          // Calculate suggested time (next Saturday at 10am, for example)
-          const suggestedTime = calculateSuggestedTime(task);
-          openGoogleCalendarWithEvent(
-            task.name,
-            suggestedTime,
-            task.durationMinutes,
-            task.description
-          );
-        }
-      }
-    );
+            if (task) {
+                // Calculate suggested time (next Saturday at 10am, for example)
+                const suggestedTime = calculateSuggestedTime(task);
+                openGoogleCalendarWithEvent(task.name, suggestedTime, task.durationMinutes, task.description);
+            }
+        });
 
-    return () => subscription.remove();
-  }, []);
+        return () => subscription.remove();
+    }, []);
 }
 ```
 
@@ -473,43 +474,43 @@ function useNotificationHandler() {
 ### Essential (Do These First)
 
 1. **React Native Basics**
-   - [Official Tutorial](https://reactnative.dev/docs/tutorial) — 2-3 hours
-   - [Expo Tutorial](https://docs.expo.dev/tutorial/introduction/) — 2-3 hours
+    - [Official Tutorial](https://reactnative.dev/docs/tutorial) — 2-3 hours
+    - [Expo Tutorial](https://docs.expo.dev/tutorial/introduction/) — 2-3 hours
 
 2. **TypeScript**
-   - [TypeScript in 5 Minutes](https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes.html)
-   - [React TypeScript Cheatsheet](https://react-typescript-cheatsheet.netlify.app/)
+    - [TypeScript in 5 Minutes](https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes.html)
+    - [React TypeScript Cheatsheet](https://react-typescript-cheatsheet.netlify.app/)
 
 3. **Zustand**
-   - [Zustand GitHub](https://github.com/pmndrs/zustand) — Read the README, it's short
+    - [Zustand GitHub](https://github.com/pmndrs/zustand) — Read the README, it's short
 
 ### When Needed
 
 4. **Expo Notifications**
-   - [Expo Notifications Guide](https://docs.expo.dev/push-notifications/overview/)
+    - [Expo Notifications Guide](https://docs.expo.dev/push-notifications/overview/)
 
 5. **Google Calendar API**
-   - [Google Calendar API Quickstart](https://developers.google.com/calendar/api/quickstart/js)
-   - [OAuth 2.0 for Mobile](https://developers.google.com/identity/protocols/oauth2/native-app)
+    - [Google Calendar API Quickstart](https://developers.google.com/calendar/api/quickstart/js)
+    - [OAuth 2.0 for Mobile](https://developers.google.com/identity/protocols/oauth2/native-app)
 
 6. **App Store Deployment**
-   - [Expo EAS Build](https://docs.expo.dev/build/introduction/)
-   - [Apple App Store Guidelines](https://developer.apple.com/app-store/review/guidelines/) — Read before building to avoid rejection
+    - [Expo EAS Build](https://docs.expo.dev/build/introduction/)
+    - [Apple App Store Guidelines](https://developer.apple.com/app-store/review/guidelines/) — Read before building to avoid rejection
 
 ---
 
 ## Estimated Timeline
 
-| Phase | Duration | Outcome |
-|-------|----------|---------|
-| Learn React Native + Expo basics | 1-2 weeks | Can build simple screens |
-| Build task CRUD + storage | 1 week | Working task list |
-| Add notifications | 3-4 days | Reminders work |
-| Calendar deep-linking | 2-3 days | End-to-end flow works |
-| Polish + testing | 1 week | Usable by you |
-| **Total V1** | **4-6 weeks** | Personal MVP |
-| Google Calendar API integration | 2 weeks | Auto-detection |
-| App Store submission | 1-2 weeks | Public release |
+| Phase                            | Duration      | Outcome                  |
+| -------------------------------- | ------------- | ------------------------ |
+| Learn React Native + Expo basics | 1-2 weeks     | Can build simple screens |
+| Build task CRUD + storage        | 1 week        | Working task list        |
+| Add notifications                | 3-4 days      | Reminders work           |
+| Calendar deep-linking            | 2-3 days      | End-to-end flow works    |
+| Polish + testing                 | 1 week        | Usable by you            |
+| **Total V1**                     | **4-6 weeks** | Personal MVP             |
+| Google Calendar API integration  | 2 weeks       | Auto-detection           |
+| App Store submission             | 1-2 weeks     | Public release           |
 
 ---
 
@@ -526,6 +527,7 @@ function useNotificationHandler() {
 ## Success Criteria
 
 **V1 is successful if:**
+
 - [ ] You actually use it for 2+ weeks
 - [ ] You schedule at least 3 irregular tasks through it
 - [ ] It successfully reminds you of something you would have forgotten
@@ -537,16 +539,16 @@ function useNotificationHandler() {
 
 ## Visual Design Notes
 
-*Inspired by [Cashew](https://cashewapp.web.app/) — a budgeting app with a clean, approachable aesthetic.*
+_Inspired by [Cashew](https://cashewapp.web.app/) — a budgeting app with a clean, approachable aesthetic._
 
 ### Design Principles
 
-| Principle | Application |
-|-----------|-------------|
-| **Minimalist clarity** | Avoid visual clutter; every element should earn its place |
-| **Functional simplicity** | UI serves the task, not the other way around |
-| **Approachable tone** | Friendly without being childish; professional without being cold |
-| **Progressive disclosure** | Show what's needed now, reveal complexity when requested |
+| Principle                  | Application                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| **Minimalist clarity**     | Avoid visual clutter; every element should earn its place        |
+| **Functional simplicity**  | UI serves the task, not the other way around                     |
+| **Approachable tone**      | Friendly without being childish; professional without being cold |
+| **Progressive disclosure** | Show what's needed now, reveal complexity when requested         |
 
 ### Color Palette
 
@@ -565,16 +567,19 @@ function useNotificationHandler() {
 ### Components
 
 **Cards:**
+
 - Clean edges, minimal shadow (1-2dp elevation)
 - Generous padding (16px standard)
 - Task cards show: name, due status, interval — nothing more
 
 **Buttons:**
+
 - Primary action: Filled, accent color
 - Secondary: Outlined or text-only
 - Ripple feedback on press (React Native Paper provides this)
 
 **Inputs:**
+
 - Floating labels that animate on focus
 - Outlined style (not underlined)
 - Clear error states without being aggressive
@@ -596,6 +601,7 @@ function useNotificationHandler() {
 ### UI Library Recommendation
 
 **React Native Paper** — Material Design components for React Native
+
 - Provides: Cards, buttons, text inputs, FAB, ripple effects, theming
 - TypeScript support out of the box
 - Handles dark mode theming
@@ -608,19 +614,19 @@ npm install react-native-paper react-native-vector-icons
 
 ```typescript
 // src/theme/index.ts
-import { MD3LightTheme, configureFonts } from 'react-native-paper';
+import { MD3LightTheme, configureFonts } from "react-native-paper";
 
 export const theme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: '#6200ee',
-    secondary: '#03dac6',
-    background: '#fafafa',
-    surface: '#ffffff',
-    error: '#b00020',
-  },
-  roundness: 8,
+    ...MD3LightTheme,
+    colors: {
+        ...MD3LightTheme.colors,
+        primary: "#6200ee",
+        secondary: "#03dac6",
+        background: "#fafafa",
+        surface: "#ffffff",
+        error: "#b00020",
+    },
+    roundness: 8,
 };
 ```
 
